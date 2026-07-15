@@ -1,0 +1,22 @@
+{
+  "nav": {
+    "home": "首页",
+    "settings": "设置"
+  },
+  "home": {
+    "welcome": "欢迎使用 Tauri",
+    "description": "您的应用模板已准备就绪。"
+  },
+  "settings": {
+    "title": "设置",
+    "appearance": "外观",
+    "themeLabel": "主题",
+    "languageLabel": "语言",
+    "themeButtonSwitchToDark": "切换为深色",
+    "themeButtonSwitchToLight": "切换为浅色"
+  },
+  "lang": {
+    "zh": "中文",
+    "en": "English"
+  }
+}

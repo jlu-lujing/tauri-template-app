@@ -1,0 +1,20 @@
+# ── Node / Frontend ───────────────────────────────
+node_modules/
+dist/
+npm-debug.log*
+pnpm-lock.yaml
+yarn.lock
+
+# ── Rust ──────────────────────────────────────────
+target/
+src-tauri/target/
+src-tauri/.package-cache/
+src-tauri/.cargo/
+
+# ── SQLite DB (per-user data) ─────────────────────
+*.db
+*.db-wal
+*.db-shm
+
+# ── References (local copy, don't track) ────────────
+refs/

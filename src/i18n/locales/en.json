@@ -1,0 +1,22 @@
+{
+  "nav": {
+    "home": "Home",
+    "settings": "Settings"
+  },
+  "home": {
+    "welcome": "Welcome to Tauri",
+    "description": "Your application template is ready."
+  },
+  "settings": {
+    "title": "Settings",
+    "appearance": "Appearance",
+    "themeLabel": "Theme",
+    "languageLabel": "Language",
+    "themeButtonSwitchToDark": "Switch to Dark",
+    "themeButtonSwitchToLight": "Switch to Light"
+  },
+  "lang": {
+    "zh": "中文",
+    "en": "English"
+  }
+}
