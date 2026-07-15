@@ -1,6 +1,8 @@
 {
   "nav": {
     "home": "首页",
+    "dashboard": "仪表盘",
+    "projects": "项目",
     "settings": "设置"
   },
   "home": {

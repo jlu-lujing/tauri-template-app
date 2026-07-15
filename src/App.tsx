@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import './App.css';
-import type { TabId } from './types';
 import { useThemeStore } from './stores/themeStore';
-import { useLang, toggleLang } from './stores/langStore';
+import { toggleLang } from './stores/langStore';
 import { useTranslation } from 'react-i18next';
-import i18n from './i18n';
 import {
   Home,
   Settings,
+  LayoutDashboard,
+  FolderOpen,
   Sun,
   Moon,
   Languages,
@@ -77,65 +77,49 @@ interface TooltipButtonProps {
   label: string;
   onClick?: () => void;
   children: React.ReactNode;
-  dark?: boolean;
+  active?: boolean;
 }
 
-function TooltipButton({ label, onClick, children, dark }: TooltipButtonProps) {
+function TooltipButton({ label, onClick, children, active }: TooltipButtonProps) {
   const [hover, setHover] = useState(false);
 
   return (
-    <div style={{ position: 'relative' }}>
-      <button
-        onClick={onClick}
-        onMouseEnter={() => setHover(true)}
-        onMouseLeave={() => setHover(false)}
-        title=""
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: 32,
-          height: 32,
-          borderRadius: 'var(--radius-sm)',
-          background: hover ? 'var(--sidebar-accent)' : 'transparent',
-          color: 'var(--sidebar-foreground)',
-          cursor: 'pointer',
-          border: 'none',
-          transition: 'background 150ms ease, color 150ms ease',
-        }}
-      >
-        {children}
-      </button>
-      {hover && (
-        <div style={{
-          position: 'absolute',
-          right: '100%',
-          top: '50%',
-          transform: 'translateY(-50%)',
-          padding: '4px 8px',
-          borderRadius: 'var(--radius-sm)',
-          fontSize: 12,
-          whiteSpace: 'nowrap',
-          background: dark ? '#333' : '#fff',
-          color: dark ? '#ddd' : '#333',
-          border: dark ? 'none' : '1px solid #ccc',
-          pointerEvents: 'none',
-        }}>
-          {label}
-        </div>
-      )}
-    </div>
+    <button
+      title={label}
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 32,
+        height: 32,
+        borderRadius: 'var(--radius-sm)',
+        background: active || hover ? 'var(--sidebar-accent)' : 'transparent',
+        color: 'var(--sidebar-foreground)',
+        cursor: 'pointer',
+        border: 'none',
+        transition: 'background 150ms ease',
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
 /* ── Sidebar tab definitions ─────── */
 
-type TabKey = 'home' | 'settings';
+type TabKey = 'home' | 'dashboard' | 'projects' | 'settings';
 
-const tabs: Array<{ key: TabKey; icon: React.ComponentType<{ size?: number; strokeWidth?: number }> }> = [
+const allTabs: Array<{ key: TabKey; icon: React.ComponentType<{ size?: number; strokeWidth?: number }> }> = [
   { key: 'home', icon: Home },
-  { key: 'settings', icon: Settings },
+  { key: 'dashboard', icon: LayoutDashboard },
+  { key: 'projects', icon: FolderOpen },
 ];
+
+// Nav sidebar only shows non-settings tabs; settings is accessible via footer button
+const navTabs = allTabs.filter((tab) => tab.key !== 'settings');
 
 /* ── App Component ──────────────────────────────────────────────── */
 
@@ -283,7 +267,7 @@ function App() {
           </div>
 
           {/* Tab buttons */}
-          {tabs.map((tab) => (
+          {navTabs.map((tab) => (
             <NavButton
               key={tab.key}
               icon={tab.icon}
@@ -304,33 +288,33 @@ function App() {
           alignItems: collapsed ? 'center' : 'center',
           gap: collapsed ? 4 : 4,
         }}>
-           {collapsed ? (
+          {collapsed ? (
             <>
-              <TooltipButton label={t('nav.settings')} onClick={() => setActiveTab('settings')}>
-                <Settings size={16} strokeWidth={2} />
-              </TooltipButton>
-              <TooltipButton label={mode === 'light' ? t('settings.themeButtonSwitchToDark') : t('settings.themeButtonSwitchToLight')} onClick={toggleTheme}>
-                {mode === 'light' ? <Moon size={16} strokeWidth={2} /> : <Sun size={16} strokeWidth={2} />}
-              </TooltipButton>
-              <TooltipButton label={t('settings.languageLabel')} onClick={toggleLang}>
+              <TooltipButton key="lang" label={t('settings.languageLabel')} onClick={toggleLang}>
                 <Languages size={16} strokeWidth={2} />
               </TooltipButton>
-              <TooltipButton label="Open sidebar" onClick={toggleSidebarCollapse}>
+              <TooltipButton key="theme" label={mode === 'light' ? t('settings.themeButtonSwitchToDark') : t('settings.themeButtonSwitchToLight')} onClick={toggleTheme}>
+                {mode === 'light' ? <Moon size={16} strokeWidth={2} /> : <Sun size={16} strokeWidth={2} />}
+              </TooltipButton>
+              <TooltipButton key="settings" label={t('nav.settings')} onClick={() => setActiveTab('settings')} active={activeTab === 'settings'}>
+                <Settings size={16} strokeWidth={2} />
+              </TooltipButton>
+              <TooltipButton key="collapse" label="Open sidebar" onClick={toggleSidebarCollapse}>
                 <Menu size={16} strokeWidth={2} />
               </TooltipButton>
             </>
           ) : (
             <>
-              <TooltipButton label="Open sidebar" onClick={toggleSidebarCollapse}>
+              <TooltipButton key="collapse" label="Open sidebar" onClick={toggleSidebarCollapse}>
                 <Menu size={16} strokeWidth={2} />
               </TooltipButton>
-              <TooltipButton label={t('nav.settings')} onClick={() => setActiveTab('settings')}>
+              <TooltipButton key="settings" label={t('nav.settings')} onClick={() => setActiveTab('settings')} active={activeTab === 'settings'}>
                 <Settings size={16} strokeWidth={2} />
               </TooltipButton>
-              <TooltipButton label={mode === 'light' ? t('settings.themeButtonSwitchToDark') : t('settings.themeButtonSwitchToLight')} onClick={toggleTheme}>
+              <TooltipButton key="theme" label={mode === 'light' ? t('settings.themeButtonSwitchToDark') : t('settings.themeButtonSwitchToLight')} onClick={toggleTheme}>
                 {mode === 'light' ? <Moon size={16} strokeWidth={2} /> : <Sun size={16} strokeWidth={2} />}
               </TooltipButton>
-              <TooltipButton label={t('settings.languageLabel')} onClick={toggleLang}>
+              <TooltipButton key="lang" label={t('settings.languageLabel')} onClick={toggleLang}>
                 <Languages size={16} strokeWidth={2} />
               </TooltipButton>
             </>
@@ -353,9 +337,21 @@ function App() {
           }}
         >
           {activeTab === 'home' && <HomePage />}
+          {activeTab === 'dashboard' && <EmptyPage title={t('nav.dashboard')} />}
+          {activeTab === 'projects' && <EmptyPage title={t('nav.projects')} />}
           {activeTab === 'settings' && <SettingsPage />}
         </div>
       </main>
+    </div>
+  );
+}
+
+/* ── Empty Page (placeholder) ─────────────────────────────── */
+
+function EmptyPage({ title }: { title: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12 }}>
+      <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--foreground)', margin: 0 }}>{title}</h2>
     </div>
   );
 }
