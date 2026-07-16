@@ -22,6 +22,8 @@ Tauri 2 + React 19 + TypeScript desktop application template.
 - **Rust** — `rustup` toolchain (stable)
 - **Node.js** — 20+ (LTS)
 - **macOS**: Xcode command line tools (`xcode-select --install`)
+- **Windows**: [Microsoft Visual Studio C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) (with "Desktop development with C++" workload) + WebView2 Runtime (preinstalled on Win10 1803+)
+- **Linux**: `webkit2gtk-4.1`, `libssl-dev`, `libgtk-3-dev`, `librsvg2-dev`, `libayatana-appindicator3-dev`
 
 ## Quick Start
 
