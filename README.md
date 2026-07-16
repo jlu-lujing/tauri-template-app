@@ -57,8 +57,12 @@ npm run tauri build
 
 ## Built-in Features
 
-- **Window management** — minimize, maximize, close, draggable title bar
-- **macOS polish** — vibrancy (NSVisualEffectView), window shadow, focus fix
+- **Cross-platform window management**
+  - macOS: vibrancy (NSVisualEffectView), traffic-light overlay, window shadow, focus fix
+  - Windows: native min/max/close buttons in the top bar, dragging
+  - Linux: overlay-aware top bar layout
+- **Window state persistence** — position, size, maximized flag saved to disk and restored on launch (debounced 3s polling + on-resize/move events + on-close)
+- **Draggable top bar** — entire header acts as drag region; double-click to maximize on Windows
 - **Theme switching** — light/dark mode, persisted to localStorage
 - **i18n** — English / Chinese language toggle
 - **SQLite config** — key-value settings store (`sys_config` table)
