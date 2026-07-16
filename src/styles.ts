@@ -1,5 +1,75 @@
 import type { CSSProperties } from 'react';
 
+/** Content area button style presets.
+ *  - `primary`: filled with --accent (default action)
+ *  - `ghost`: transparent, subtle text
+ *  - `outline`: border only, accent text on hover
+ */
+type BtnVariant = 'primary' | 'ghost' | 'outline';
+
+interface BtnStyleConfig {
+  variant: BtnVariant;
+  disabled?: boolean;
+}
+
+/** Get styled CSSProperties for a content-area button. */
+export function btnStyle(cfg: BtnStyleConfig): CSSProperties {
+  const { variant, disabled = false } = cfg;
+
+  if (disabled) {
+    return {
+      padding: '3px 10px',
+      fontSize: 12,
+      fontWeight: 500,
+      background: 'transparent',
+      color: 'var(--muted-foreground)',
+      border: `1px solid var(--border)`,
+      borderRadius: 'var(--radius-sm)',
+      cursor: 'not-allowed',
+      opacity: 0.5,
+    };
+  }
+
+  switch (variant) {
+    case 'primary':
+      return {
+        padding: '3px 10px',
+        fontSize: 12,
+        fontWeight: 500,
+        background: 'var(--accent)',
+        color: 'var(--accent-foreground)',
+        border: `1px solid var(--border)`,
+        borderRadius: 'var(--radius-sm)',
+        cursor: 'pointer',
+      };
+    case 'ghost':
+      return {
+        padding: '3px 10px',
+        fontSize: 12,
+        fontWeight: 500,
+        background: 'transparent',
+        color: 'var(--muted-foreground)',
+        border: `1px solid var(--border)`,
+        borderRadius: 'var(--radius-sm)',
+        cursor: 'pointer',
+      };
+    case 'outline':
+      return {
+        padding: '3px 10px',
+        fontSize: 12,
+        fontWeight: 500,
+        background: 'transparent',
+        color: 'var(--foreground)',
+        border: `1px solid var(--border)`,
+        borderRadius: 'var(--radius-sm)',
+        cursor: 'pointer',
+      };
+  }
+}
+
+export const btnHoverBg = 'var(--sidebar-accent)';
+export const btnGhostHoverBg = 'var(--secondary)';
+
 /** 共享表单输入样式 */
 export const inputStyle: CSSProperties = {
   width: '100%',

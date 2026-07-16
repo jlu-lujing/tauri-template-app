@@ -2,6 +2,12 @@
 
 Tauri 2 + React 19 + TypeScript desktop application template.
 
+## Screenshots
+
+| Light Mode | Dark Mode |
+|------------|-----------|
+| ![Light](public/preview.png) | ![Dark](public/preview_dark.png) |
+
 ## Stack
 
 | Layer | Technology |

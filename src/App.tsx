@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import './App.css';
+import { btnHoverBg } from './styles';
 import { useThemeStore } from './stores/themeStore';
 import { toggleLang } from './stores/langStore';
 import { useTranslation } from 'react-i18next';
@@ -52,7 +53,7 @@ function NavButton({ icon: Icon, label, active, onClick, collapsed }: NavButtonP
         justifyContent: collapsed ? 'center' : 'flex-start',
         gap: 8,
         padding: collapsed ? '0' : '0 10px',
-         width: collapsed ? 36 : '100%',
+        width: collapsed ? 36 : '100%',
         height: 36,
         borderRadius: 'var(--radius-sm)',
         fontSize: 13,
@@ -108,18 +109,51 @@ function TooltipButton({ label, onClick, children, active }: TooltipButtonProps)
   );
 }
 
+/* ── WinBtn (Windows-style window control button) ──────────────── */
+
+interface WinBtnProps {
+  icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
+  onClick: () => void;
+  tooltip: string;
+  danger?: boolean;
+}
+
+function WinBtn({ icon: Icon, onClick, tooltip, danger }: WinBtnProps) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      title={tooltip}
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => { setHover(false); }}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 46,
+        height: 34,
+        borderRadius: 4,
+        border: 'none',
+        background: hover ? (danger ? '#e81123' : 'var(--sidebar-hover)') : 'transparent',
+        color: danger && hover ? '#ffffff' : 'var(--sidebar-foreground)',
+        cursor: 'pointer',
+        transition: 'background 80ms ease, color 80ms ease',
+      }}
+    >
+      <Icon size={12} strokeWidth={2} />
+    </button>
+  );
+}
+
 /* ── Sidebar tab definitions ─────── */
 
 type TabKey = 'home' | 'dashboard' | 'projects' | 'settings';
 
-const allTabs: Array<{ key: TabKey; icon: React.ComponentType<{ size?: number; strokeWidth?: number }> }> = [
+const navTabs: typeof allTabs = [
   { key: 'home', icon: Home },
   { key: 'dashboard', icon: LayoutDashboard },
   { key: 'projects', icon: FolderOpen },
 ];
-
-// Nav sidebar only shows non-settings tabs; settings is accessible via footer button
-const navTabs = allTabs.filter((tab) => tab.key !== 'settings');
 
 /* ── App Component ──────────────────────────────────────────────── */
 
@@ -129,8 +163,30 @@ function App() {
   const [activeTab, setActiveTab] = useState<TabKey>('home');
   const sidebarRef = useRef<HTMLDivElement>(null);
 
+  const [platform, setPlatform] = useState<string | null>(null);
+  const [isMaximized, setIsMaximized] = useState(false);
+
   const { mode, toggle: toggleTheme } = useThemeStore();
   const t = useTranslation().t;
+
+  /* Detect platform and maximized state from Tauri backend */
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      invoke('win_platform').then((p: string) => p),
+      invoke('win_is_maximized').then((m: boolean) => m),
+    ]).then(([p, m]) => {
+      if (!cancelled) {
+        setPlatform(p);
+        setIsMaximized(Boolean(m));
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setPlatform('unknown');
+      }
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   /* Persist collapsed/width in localStorage */
   useEffect(() => {
@@ -162,6 +218,19 @@ function App() {
     return () => window.removeEventListener('storage', handler);
   }, []);
 
+  /* Periodically persist window position/size/maximized to backend */
+  useEffect(() => {
+    const timer = setInterval(() => {
+      invoke('win_get_state')
+        .then((state: any) => {
+          invoke('win_set_state', { state })
+            .catch(() => {});
+        })
+        .catch(() => {});
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
+
   const toggleSidebarCollapse = () => setCollapsed((v) => !v);
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -191,157 +260,158 @@ function App() {
   /* ── Render ─────────────────────────────────────────────────── */
 
   return (
-    <div
-      className="flex h-screen"
-      data-slot="root"
-      style={{
-        background: 'transparent',
-        borderRadius: 12,
-        overflow: 'hidden',
-        position: 'relative',
-      }}
-    >
-      {/* Drag bar — top area for dragging and double-click to maximize */}
-      <div
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Top bar — spans full width, sits above sidebar + content */}
+      <header
+        data-slot="topbar"
+        className="top-bar"
+        onMouseDown={() => invoke('win_start_drag').catch(() => {})}
         style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
           height: 46,
-          zIndex: 1000,
-          userSelect: 'none',
-          WebkitUserSelect: 'none',
-        }}
-        onMouseDown={() => {
-          invoke('win_start_drag').catch(() => {});
-        }}
-        onDoubleClick={() => {
-          invoke('win_maximize').catch(() => {});
-        }}
-      />
-
-      {/* Sidebar */}
-       <aside
-        id="tauri-sidebar"
-        data-slot="sidebar"
-        style={{
-          width: `${collapsed ? 52 : sidebarWidthPx}px`,
-          display: 'flex',
-          flexDirection: 'column',
           flexShrink: 0,
           background: 'var(--sidebar)',
           color: 'var(--sidebar-foreground)',
-          position: 'relative',
-          minWidth: collapsed ? 52 : 160,
-          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          padding: '0 16px',
+          gap: 8,
+          ...(platform === 'macos' || platform === 'linux' ? { paddingLeft: 96 } : {}),
+          justifyContent: 'flex-end',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
         }}
       >
-        {/* Resize handle — right edge drag area (hidden when collapsed) */}
-         {!collapsed && (
-          <div
-            ref={sidebarRef}
-            style={{
-              position: 'absolute',
-              top: 0,
-              right: -3,
-              width: 6,
-              height: '100%',
-              cursor: 'col-resize',
-              zIndex: 50,
-              userSelect: 'none',
-              WebkitUserSelect: 'none',
-            }}
-            onMouseDown={handleMouseDown}
-          />
-        )}
-
-        {/* Spacer (matches drag bar height) */}
-        <div style={{ height: 46, flexShrink: 0 }} />
-
-        {/* Logo + Title row */}
-         <div style={{ padding: '0 8px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start', gap: 8, padding: '0 10px', height: 36, borderRadius: 'var(--radius-sm)', width: '100%' }}>
-            <LogoIcon size={16} strokeWidth={2} />
-            {!collapsed && <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--sidebar-foreground)', letterSpacing: '-0.02em' }}>Tauri App</span>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+          <LogoIcon size={16} strokeWidth={2} />
+          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.02em' }}>Tauri App</span>
+        </div>
+        {platform === 'windows' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+            <WinBtn icon={(props) => <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} {...props}><line x1="5" y1="12" x2="19" y2="12" /></svg>} tooltip="Minimize" onClick={() => invoke('win_minimize').catch(() => {})} />
+            <WinBtn icon={(props) => <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} {...props}><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /></svg>} tooltip={isMaximized ? 'Restore' : 'Maximize'} onClick={() => invoke('win_maximize').catch(() => {})} />
+            <WinBtn icon={(props) => <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} {...props}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>} tooltip="Close" onClick={() => invoke('win_close').catch(() => {})} danger />
           </div>
+        )}
+      </header>
 
-          {/* Tab buttons */}
-          {navTabs.map((tab) => (
-            <NavButton
-              key={tab.key}
-              icon={tab.icon}
-              label={t(`nav.${tab.key}`)}
-              active={activeTab === tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              collapsed={collapsed}
-            />
-          ))}
-        </div>
-
-        {/* Footer: pinned to bottom of sidebar */}
-        <div style={{
-          marginTop: 'auto',
-          padding: '0 10px 8px',
-          display: 'flex',
-          flexDirection: collapsed ? 'column' : 'row',
-          alignItems: collapsed ? 'center' : 'center',
-          gap: collapsed ? 4 : 4,
-        }}>
-          {collapsed ? (
-            <>
-              <TooltipButton key="lang" label={t('settings.languageLabel')} onClick={toggleLang}>
-                <Languages size={16} strokeWidth={2} />
-              </TooltipButton>
-              <TooltipButton key="theme" label={mode === 'light' ? t('settings.themeButtonSwitchToDark') : t('settings.themeButtonSwitchToLight')} onClick={toggleTheme}>
-                {mode === 'light' ? <Moon size={16} strokeWidth={2} /> : <Sun size={16} strokeWidth={2} />}
-              </TooltipButton>
-              <TooltipButton key="settings" label={t('nav.settings')} onClick={() => setActiveTab('settings')} active={activeTab === 'settings'}>
-                <Settings size={16} strokeWidth={2} />
-              </TooltipButton>
-              <TooltipButton key="collapse" label="Open sidebar" onClick={toggleSidebarCollapse}>
-                <Menu size={16} strokeWidth={2} />
-              </TooltipButton>
-            </>
-          ) : (
-            <>
-              <TooltipButton key="collapse" label="Open sidebar" onClick={toggleSidebarCollapse}>
-                <Menu size={16} strokeWidth={2} />
-              </TooltipButton>
-              <TooltipButton key="settings" label={t('nav.settings')} onClick={() => setActiveTab('settings')} active={activeTab === 'settings'}>
-                <Settings size={16} strokeWidth={2} />
-              </TooltipButton>
-              <TooltipButton key="theme" label={mode === 'light' ? t('settings.themeButtonSwitchToDark') : t('settings.themeButtonSwitchToLight')} onClick={toggleTheme}>
-                {mode === 'light' ? <Moon size={16} strokeWidth={2} /> : <Sun size={16} strokeWidth={2} />}
-              </TooltipButton>
-              <TooltipButton key="lang" label={t('settings.languageLabel')} onClick={toggleLang}>
-                <Languages size={16} strokeWidth={2} />
-              </TooltipButton>
-            </>
-          )}
-        </div>
-      </aside>
-
-      {/* Main Content Area */}
-      <main data-slot="content" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div
+      {/* Body — sidebar + content row */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        {/* Sidebar */}
+        <aside
+          id="tauri-sidebar"
+          data-slot="sidebar"
           style={{
-            flex: 1,
-            overflow: 'auto',
-            padding: '16px 24px',
-            background: 'var(--background)',
-            borderRadius: 'var(--radius-xl)',
-            margin: '8px 8px 8px 0',
-            boxShadow: '-1px 0 3px -1px rgba(0,0,0,0.08)',
-            minHeight: 0,
+            width: `${collapsed ? 52 : sidebarWidthPx}px`,
+            display: 'flex',
+            flexDirection: 'column',
+            flexShrink: 0,
+            background: 'var(--sidebar)',
+            color: 'var(--sidebar-foreground)',
+            position: 'relative',
+            minWidth: collapsed ? 52 : 160,
           }}
         >
-          {activeTab === 'home' && <HomePage />}
-          {activeTab === 'dashboard' && <EmptyPage title={t('nav.dashboard')} />}
-          {activeTab === 'projects' && <EmptyPage title={t('nav.projects')} />}
-          {activeTab === 'settings' && <SettingsPage />}
+          {/* Resize handle — right edge drag area (hidden when collapsed) */}
+          {!collapsed && (
+            <div
+              ref={sidebarRef}
+              style={{
+                position: 'absolute',
+                top: 0,
+                right: -3,
+                width: 6,
+                height: '100%',
+                cursor: 'col-resize',
+                zIndex: 50,
+                userSelect: 'none',
+                WebkitUserSelect: 'none',
+              }}
+              onMouseDown={handleMouseDown}
+            />
+          )}
+
+          {/* Logo + Tab buttons */}
+          <div style={{ padding: '0 8px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {/* Tab buttons */}
+            {navTabs.map((tab) => (
+              <NavButton
+                key={tab.key}
+                icon={tab.icon}
+                label={t(`nav.${tab.key}`)}
+                active={activeTab === tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                collapsed={collapsed}
+              />
+            ))}
+          </div>
+
+          {/* Footer: pinned to bottom of sidebar */}
+          <div style={{
+            marginTop: 'auto',
+            padding: '0 10px 8px',
+            display: 'flex',
+            flexDirection: collapsed ? 'column' : 'row',
+            alignItems: collapsed ? 'center' : 'center',
+            gap: collapsed ? 4 : 4,
+          }}>
+            {collapsed ? (
+              <>
+                <TooltipButton key="lang" label={t('settings.languageLabel')} onClick={toggleLang}>
+                  <Languages size={16} strokeWidth={2} />
+                </TooltipButton>
+                <TooltipButton key="theme" label={mode === 'light' ? t('settings.themeButtonSwitchToDark') : t('settings.themeButtonSwitchToLight')} onClick={toggleTheme}>
+                  {mode === 'light' ? <Moon size={16} strokeWidth={2} /> : <Sun size={16} strokeWidth={2} />}
+                </TooltipButton>
+                <TooltipButton key="settings" label={t('nav.settings')} onClick={() => setActiveTab('settings')} active={activeTab === 'settings'}>
+                  <Settings size={16} strokeWidth={2} />
+                </TooltipButton>
+                <TooltipButton key="collapse" label="Open sidebar" onClick={toggleSidebarCollapse}>
+                  <Menu size={16} strokeWidth={2} />
+                </TooltipButton>
+              </>
+            ) : (
+              <>
+                <TooltipButton key="collapse" label="Open sidebar" onClick={toggleSidebarCollapse}>
+                  <Menu size={16} strokeWidth={2} />
+                </TooltipButton>
+                <TooltipButton key="settings" label={t('nav.settings')} onClick={() => setActiveTab('settings')} active={activeTab === 'settings'}>
+                  <Settings size={16} strokeWidth={2} />
+                </TooltipButton>
+                <TooltipButton key="theme" label={mode === 'light' ? t('settings.themeButtonSwitchToDark') : t('settings.themeButtonSwitchToLight')} onClick={toggleTheme}>
+                  {mode === 'light' ? <Moon size={16} strokeWidth={2} /> : <Sun size={16} strokeWidth={2} />}
+                </TooltipButton>
+                <TooltipButton key="lang" label={t('settings.languageLabel')} onClick={toggleLang}>
+                  <Languages size={16} strokeWidth={2} />
+                </TooltipButton>
+              </>
+            )}
+          </div>
+        </aside>
+
+        {/* Content column */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* Main Content Area */}
+          <main data-slot="content" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div
+              style={{
+                flex: 1,
+                overflow: 'auto',
+                padding: '16px 24px',
+                background: 'var(--background)',
+                borderRadius: 'var(--radius-xl)',
+                margin: '0px 8px 8px 0',
+                boxShadow: '-1px 0 3px -1px rgba(0,0,0,0.08)',
+                minHeight: 0,
+              }}
+            >
+              {activeTab === 'home' && <HomePage />}
+              {activeTab === 'dashboard' && <EmptyPage title={t('nav.dashboard')} />}
+              {activeTab === 'projects' && <EmptyPage title={t('nav.projects')} />}
+              {activeTab === 'settings' && <SettingsPage />}
+            </div>
+          </main>
         </div>
-      </main>
+      </div>
     </div>
   );
 }
@@ -372,7 +442,8 @@ function HomePage() {
 /* ── Settings Page ─────────────────────────────────────── */
 
 function SettingsPage() {
-  const { mode, toggle: toggleTheme } = useThemeStore();
+  const mode = useThemeStore((s) => s.mode);
+  const toggleTheme = useThemeStore((s) => s.toggle);
   const { i18n } = useTranslation();
   const t = useTranslation().t;
   const lang = i18n.language as 'zh' | 'en';
@@ -399,7 +470,7 @@ function SettingsPage() {
           <span style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>{t('settings.themeLabel')}</span>
           <button
             onClick={toggleTheme}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--sidebar-accent)'; }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = btnHoverBg; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
             style={{
               display: 'flex',
@@ -423,9 +494,9 @@ function SettingsPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontSize: 13, color: 'var(--muted-foreground)' }}>{t('settings.languageLabel')}</span>
-         <button
+          <button
             onClick={() => i18n.changeLanguage(lang === 'zh' ? 'en' : 'zh')}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--sidebar-accent)'; }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = btnHoverBg; }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
             style={{
               display: 'flex',
